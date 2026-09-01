@@ -19,6 +19,7 @@ local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 
 --- @class Gitsigns.Repo : Gitsigns.RepoInfo
 ---
+--- @field backend? 'jj'
 --- Username configured for the repo.
 --- Needed for to determine "You" in current line blame.
 --- @field username string
@@ -551,6 +552,16 @@ function M.get(cwd, gitdir, toplevel)
   --- @return Gitsigns.Repo? repo
   --- @return string? err
   return sem:with(function()
+    -- Prefer jj when it owns this workspace. This also deliberately handles
+    -- colocated repositories: jj root succeeds in a directory containing
+    -- both `.jj` and `.git`, while explicit Git contexts retain Git semantics.
+    if not gitdir and not toplevel then
+      local jj_repo = require('gitsigns.jj.repo').get(cwd)
+      if jj_repo then
+        return jj_repo
+      end
+    end
+
     local info, err = M.get_info(cwd, gitdir, toplevel)
     if not info then
       return nil, err

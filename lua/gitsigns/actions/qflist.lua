@@ -87,7 +87,9 @@ local function buildqflist(target)
           local stat = uv.fs_stat(f_abs)
           --- @type string
           local obj
-          if config.base and config.base ~= ':0' then
+          if r.backend == 'jj' then
+            obj = changed_file.oldpath or f
+          elseif config.base and config.base ~= ':0' then
             obj = config.base .. ':' .. (changed_file.oldpath or f)
           else
             obj = ':0:' .. f

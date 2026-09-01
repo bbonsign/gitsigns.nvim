@@ -11,6 +11,20 @@ local cache = require('gitsigns.cache').cache
 local api = vim.api
 local current_buf = api.nvim_get_current_buf
 
+--- @param bcache Gitsigns.CacheEntry
+--- @return boolean
+local function read_only_backend(bcache)
+  if bcache.git_obj.repo.backend == 'jj' then
+    api.nvim_echo(
+      { { 'Jujutsu backend is read-only; this action is unsupported', 'WarningMsg' } },
+      false,
+      {}
+    )
+    return true
+  end
+  return false
+end
+
 local tointeger = util.tointeger
 local validate = util.validate
 
@@ -294,6 +308,9 @@ function M.stage_hunk(range, opts, callback)
   if not bcache then
     return
   end
+  if read_only_backend(bcache) then
+    return
+  end
 
   if not util.Path.exists(bcache.file) then
     print('Error: Cannot stage lines. Please add the file to the working tree.')
@@ -383,6 +400,9 @@ function M.reset_hunk(range, opts, callback)
     if not bcache then
       return
     end
+    if read_only_backend(bcache) then
+      return
+    end
 
     local hunk = bcache:get_hunk(range, opts.greedy ~= false, false)
 
@@ -407,6 +427,9 @@ function M.reset_buffer()
   local bufnr = current_buf()
   local bcache = cache[bufnr]
   if not bcache then
+    return
+  end
+  if read_only_backend(bcache) then
     return
   end
 
@@ -436,6 +459,9 @@ function M.undo_stage_hunk(callback)
     local bufnr = current_buf()
     local bcache = cache[bufnr]
     if not bcache then
+      return
+    end
+    if read_only_backend(bcache) then
       return
     end
 
@@ -469,6 +495,9 @@ function M.stage_buffer(callback)
     local bufnr = current_buf()
     local bcache = cache[bufnr]
     if not bcache then
+      return
+    end
+    if read_only_backend(bcache) then
       return
     end
 
@@ -517,6 +546,9 @@ function M.reset_buffer_index(callback)
     local bufnr = current_buf()
     local bcache = cache[bufnr]
     if not bcache then
+      return
+    end
+    if read_only_backend(bcache) then
       return
     end
 

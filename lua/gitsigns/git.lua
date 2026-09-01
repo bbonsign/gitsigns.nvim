@@ -69,6 +69,9 @@ end
 --- @param revision? string
 --- @return string? err
 function Obj:change_revision(revision)
+  if self.repo.backend == 'jj' then
+    return 'Jujutsu backend only supports the working-copy parent as a base'
+  end
   return refresh(self, util.norm_base(revision))
 end
 
@@ -100,6 +103,9 @@ function Obj:closed()
 end
 
 function Obj:from_tree()
+  if self.repo.backend == 'jj' then
+    return true
+  end
   return Repo.from_tree(self.revision)
 end
 
@@ -120,7 +126,13 @@ function Obj:get_show_text(revision, relpath)
   end
 
   local stdout, stderr
-  if revision then
+  if self.repo.backend == 'jj' then
+    -- jj exposes the working-copy parent as its only supported base.
+    if revision then
+      return {}, 'Jujutsu workspaces do not support alternate revisions'
+    end
+    stdout, stderr = self.repo:get_show_text(assert(relpath))
+  elseif revision then
     --- @cast relpath -?
     stdout, stderr = self.repo:get_show_text_at_revision(revision, relpath, self.encoding)
   else
@@ -151,6 +163,9 @@ end
 
 --- @async
 function Obj:unstage_file()
+  if self.repo.backend == 'jj' then
+    return 'Jujutsu backend is read-only; unstage is unsupported'
+  end
   self.repo:command({ 'reset', self.file })
   autocmd_changed(self.file)
 end
@@ -163,6 +178,9 @@ end
 --- @return table<integer,Gitsigns.BlameInfo?>
 --- @return table<string,Gitsigns.CommitInfo?>
 function Obj:run_blame(contents, lnum, revision, opts)
+  if self.repo.backend == 'jj' then
+    return {}, {}
+  end
   return require('gitsigns.git.blame').run_blame(self, contents, lnum, revision, opts)
 end
 
@@ -204,6 +222,9 @@ end)
 --- @param invert? boolean
 --- @return string? err
 function Obj:stage_hunks(hunks, invert)
+  if self.repo.backend == 'jj' then
+    return 'Jujutsu backend is read-only; staging is unsupported'
+  end
   self:ensure_file_in_index()
 
   local relpath = assert(self.relpath)

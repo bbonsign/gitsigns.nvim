@@ -235,7 +235,8 @@ local function repo_update_handler(bufnr)
   local head_oid = git_obj.repo.head_oid
 
   if
-    old_object_name ~= new_object_name
+    git_obj.repo.backend == 'jj'
+    or old_object_name ~= new_object_name
     or old_mode_bits ~= new_mode_bits
     -- Invalidate when the repo HEAD moves (checkout, pull/rebase, etc). The
     -- file object can stay the same while the comparison base changes.
@@ -246,7 +247,12 @@ local function repo_update_handler(bufnr)
 
   bcache.head_oid = head_oid
 
-  if config.watch_gitdir.follow_files and was_tracked and not new_object_name then
+  if
+    git_obj.repo.backend ~= 'jj'
+    and config.watch_gitdir.follow_files
+    and was_tracked
+    and not new_object_name
+  then
     -- File was tracked but is no longer tracked. Must of been removed or
     -- moved. Check if it was moved and switch to it.
     handle_moved(bufnr, old_relpath)

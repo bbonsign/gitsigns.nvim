@@ -182,13 +182,18 @@ describe('gitsigns (with screen)', function()
     it('does not attach inside .git', function()
       edit(scratch .. '/.git/index')
 
-      match_debug_messages({
+      local expected = {
         'attach.attach(1): Attaching (trigger=BufReadPost)',
         n('system.system: git --version'),
         p(revparse_pat),
         n('git.new: Not in git repo'),
         n('attach.attach(1): Empty git obj'),
-      })
+      }
+      if exec_lua("return vim.fn.executable('jj')") == 1 then
+        table.insert(expected, 2, n('system.system: jj --no-pager --color=never root'))
+        table.insert(expected, 2, n('jj.cmd.cmd: jj --no-pager --color=never root'))
+      end
+      match_debug_messages(expected)
     end)
 
     it("doesn't attach to ignored files", function()

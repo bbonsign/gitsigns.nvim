@@ -146,6 +146,24 @@ Deep buffer integration for Git
 
 - Newish version of git. Older versions may not work with some features.
 
+### Jujutsu workspaces
+
+When `jj` is installed, Gitsigns also detects Jujutsu workspaces and compares
+the working copy with its parent (`@-`). In a colocated repository the jj
+backend takes precedence over Git. This integration is intentionally read-only:
+
+- gutter signs, hunk navigation, hunk previews, and quickfix/location lists are supported;
+- added files are treated like untracked files and follow `attach_to_untracked`;
+- deleted files appear in repository-wide quickfix/location lists;
+- materialized conflict contents remain attachable; for a merge working copy,
+  they are diffed against one parent selected deterministically by jj's
+  `latest(@-, 1)` rather than jj's virtual merged-parent tree;
+- staged signs, staging/unstaging, resets, blame, alternate bases, and other
+  Git-specific actions are unsupported.
+
+The `.jj` directory is watched when `watch_gitdir.enable` is set, so operations
+that change the working-copy parent refresh attached buffers.
+
 ## 🛠️ Installation & Usage
 
 Install using your package manager of choice. No setup required.

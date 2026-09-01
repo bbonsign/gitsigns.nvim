@@ -108,6 +108,7 @@ end
 --- @field private commondir string
 --- @field private handles table<string, uv.uv_fs_event_t|uv.uv_fs_poll_t> Map from concrete handle path -> handle
 --- @field private head_ref? string
+--- @field private extra_targets string[]
 --- @field private _backend 'fs_event'|'fs_poll'
 --- @field private _target_fingerprints table<string, string?> Snapshot of fs_poll logical targets
 --- @field private _closed? true
@@ -117,13 +118,15 @@ Watcher.__index = Watcher
 
 --- @param gitdir string
 --- @param commondir? string
+--- @param extra_targets? string[]
 --- @return Gitsigns.Repo.Watcher
-function Watcher.new(gitdir, commondir)
+function Watcher.new(gitdir, commondir, extra_targets)
   local self = setmetatable({}, Watcher)
 
   self.update_callbacks = {}
   self.gitdir = gitdir
   self.commondir = commondir or gitdir
+  self.extra_targets = extra_targets or {}
   self.handles = {}
   self._backend = FS_EVENT
   self._target_fingerprints = {}
@@ -355,6 +358,8 @@ function Watcher:_fs_event_targets()
     end
   end
 
+  vim.list_extend(targets, self.extra_targets)
+
   return targets
 end
 
@@ -371,6 +376,8 @@ function Watcher:_fs_poll_targets()
   if self.head_ref then
     targets[#targets + 1] = Path.join(self.commondir, self.head_ref)
   end
+
+  vim.list_extend(targets, self.extra_targets)
 
   return targets
 end
