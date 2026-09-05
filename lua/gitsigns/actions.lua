@@ -400,9 +400,6 @@ function M.reset_hunk(range, opts, callback)
     if not bcache then
       return
     end
-    if read_only_backend(bcache) then
-      return
-    end
 
     local hunk = bcache:get_hunk(range, opts.greedy ~= false, false)
 
@@ -427,9 +424,6 @@ function M.reset_buffer()
   local bufnr = current_buf()
   local bcache = cache[bufnr]
   if not bcache then
-    return
-  end
-  if read_only_backend(bcache) then
     return
   end
 
