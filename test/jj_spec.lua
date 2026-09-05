@@ -85,6 +85,22 @@ describe('jj backend', function()
     eq(true, exec_lua("return require('gitsigns.popup').is_open('hunk') ~= nil"))
 
     exec_lua("require('gitsigns.popup').close('hunk')")
+
+    exec_lua(function()
+      require('gitsigns').reset_hunk({ 1, 1 })
+    end)
+    helpers.expectf(function()
+      eq({ 'base', 'unchanged', 'added' }, helpers.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    exec_lua(function()
+      require('gitsigns').reset_buffer()
+    end)
+    helpers.expectf(function()
+      eq({ 'base', 'unchanged' }, helpers.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    command('write')
     jj('new')
     helpers.expectf(function()
       eq(
@@ -97,7 +113,7 @@ describe('jj backend', function()
     end)
   end)
 
-  it('lists added and deleted files in quickfix and rejects modifying actions', function()
+  it('lists added and deleted files in quickfix and rejects staging', function()
     setup_jj_repo()
     os.remove(scratch .. '/file.txt')
     write_to_file(scratch .. '/new.txt', { 'new' })
