@@ -27,6 +27,8 @@ local M = {
 ---
 --- @field file_mode?         boolean
 ---
+--- @field compare_text_parent_on_empty? string[]
+---
 --- @field compare_text_head? string[]
 --- @field hunks_staged?      Gitsigns.Hunk.Hunk[]
 ---
@@ -61,6 +63,7 @@ function CacheEntry:invalidate(all)
     -- The below doesn't need to be invalidated
     -- if the buffer changes
     self.compare_text = nil
+    self.compare_text_parent_on_empty = nil
     self.compare_text_head = nil
   end
 end

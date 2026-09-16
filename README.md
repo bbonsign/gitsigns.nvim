@@ -164,6 +164,10 @@ backend takes precedence over Git. This integration is intentionally read-only:
 The `.jj` directory is watched when `watch_gitdir.enable` is set, so operations
 that change the working-copy parent refresh attached buffers.
 
+To keep showing the previous change after starting a new empty change, set
+`jj.show_parent_on_empty = true`. Once the buffer differs from the working-copy
+parent, signs show only the new changes.
+
 ## 🛠️ Installation & Usage
 
 Install using your package manager of choice. No setup required.

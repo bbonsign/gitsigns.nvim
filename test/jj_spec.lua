@@ -113,6 +113,52 @@ describe('jj backend', function()
     end)
   end)
 
+  it('shows the parent change while the working-copy change is empty', function()
+    setup_jj_repo()
+
+    local config = vim.tbl_deep_extend('force', helpers.test_config, {
+      jj = { show_parent_on_empty = true },
+    })
+    setup_gitsigns(config)
+    helpers.edit(scratch .. '/file.txt')
+    wait_for_attach()
+
+    helpers.check({
+      status = { head = '@', added = 2, changed = 0, removed = 0 },
+      signs = { added = 2 },
+    })
+
+    helpers.api.nvim_buf_set_lines(0, 0, 1, false, { 'changed' })
+    helpers.check({
+      status = { head = '@', added = 0, changed = 1, removed = 0 },
+      signs = { changed = 1 },
+    })
+
+    helpers.api.nvim_buf_set_lines(0, 0, 1, false, { 'base' })
+    helpers.check({
+      status = { head = '@', added = 2, changed = 0, removed = 0 },
+      signs = { added = 2 },
+    })
+  end)
+
+  it('does not show the parent change when the working-copy change is non-empty', function()
+    setup_jj_repo()
+    write_to_file(scratch .. '/new.txt', { 'new change' })
+    jj('status')
+
+    local config = vim.tbl_deep_extend('force', helpers.test_config, {
+      jj = { show_parent_on_empty = true },
+    })
+    setup_gitsigns(config)
+    helpers.edit(scratch .. '/file.txt')
+    wait_for_attach()
+
+    helpers.check({
+      status = { head = '@', added = 0, changed = 0, removed = 0 },
+      signs = {},
+    })
+  end)
+
   it('lists added and deleted files in quickfix and rejects staging', function()
     setup_jj_repo()
     os.remove(scratch .. '/file.txt')

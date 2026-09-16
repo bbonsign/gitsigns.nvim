@@ -16,7 +16,9 @@ return function(args, spec)
   if spec.cwd then
     spec.cwd = util.cygpath(spec.cwd)
   end
-  spec.text = true
+  if spec.text == nil then
+    spec.text = true
+  end
 
   local cmd = { 'jj', '--no-pager', '--color=never' }
   vim.list_extend(cmd, args)
@@ -35,7 +37,7 @@ return function(args, spec)
   end
 
   local stdout = vim.split(obj.stdout or '', '\n')
-  if stdout[#stdout] == '' then
+  if spec.text and stdout[#stdout] == '' then
     stdout[#stdout] = nil
   end
   return stdout, obj.stderr ~= '' and obj.stderr or nil, obj.code

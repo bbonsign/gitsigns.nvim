@@ -150,6 +150,28 @@ function Obj:get_show_text(revision, relpath)
   return stdout, stderr
 end
 
+--- Get the comparison text which includes the parent change when @ is empty.
+--- @async
+--- @return string[] stdout, string? stderr
+function Obj:get_show_text_parent_on_empty()
+  assert(self.repo.backend == 'jj')
+  local repo = self.repo --[[@as Gitsigns.JjRepo]]
+  local stdout, stderr = repo:get_show_text_parent_on_empty(assert(self.relpath))
+
+  -- The file may have been introduced by the parent change.
+  if stderr then
+    return { '' }
+  end
+
+  if not self.i_crlf and self.w_crlf then
+    for i = 1, #stdout - 1 do
+      stdout[i] = stdout[i] .. '\r'
+    end
+  end
+
+  return stdout
+end
+
 --- @param file string
 local function autocmd_changed(file)
   vim.schedule(function()

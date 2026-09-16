@@ -173,6 +173,9 @@ M.update = throttle_async({ hash = 1, schedule = true }, function(bufnr)
         bcache.compare_text = util.file_lines(git_obj.file)
       else
         bcache.compare_text = git_obj:get_show_text()
+        if git_obj.repo.backend == 'jj' and config.jj.show_parent_on_empty then
+          bcache.compare_text_parent_on_empty = git_obj:get_show_text_parent_on_empty()
+        end
       end
       if not bcache:schedule(true) then
         return
@@ -181,7 +184,12 @@ M.update = throttle_async({ hash = 1, schedule = true }, function(bufnr)
 
     local buftext = util.buf_lines(bufnr)
 
-    bcache.hunks = run_diff(bcache.compare_text, buftext)
+    local compare_text = bcache.compare_text --[[@as string[] ]]
+    local parent_text = bcache.compare_text_parent_on_empty
+    if parent_text and vim.deep_equal(buftext, bcache.compare_text) then
+      compare_text = parent_text
+    end
+    bcache.hunks = run_diff(compare_text, buftext)
     if not bcache:schedule() then
       return
     end

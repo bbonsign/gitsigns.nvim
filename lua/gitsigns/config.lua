@@ -100,6 +100,7 @@ local validate = require('gitsigns.util').validate
 --- @field preview_config vim.api.keyset.win_config
 --- @field auto_attach boolean
 --- @field attach_to_untracked boolean
+--- @field jj Gitsigns.JjOpts
 --- @field worktrees {toplevel: string, gitdir: string}[]
 --- @field word_diff boolean
 --- @field trouble boolean
@@ -118,6 +119,9 @@ local validate = require('gitsigns.util').validate
 
 --- @class Gitsigns.config
 local M = {}
+
+--- @class (exact) Gitsigns.JjOpts
+--- @field show_parent_on_empty boolean
 
 --- @alias Gitsigns.Config.SubscribersCb fun(old_val:any, new_val:any)
 --- @type table<string, Gitsigns.Config.SubscribersCb[]>
@@ -522,6 +526,23 @@ M.schema = {
     description = [[
       The object/revision to diff against.
       See |gitsigns-revision|.
+    ]],
+  },
+
+  jj = {
+    type = 'table',
+    deep_extend = true,
+    default = {
+      show_parent_on_empty = false,
+    },
+    description = [[
+      Jujutsu-specific options.
+
+      Fields: ~
+        • `show_parent_on_empty`:
+            When the working-copy change is empty, show the changes in its
+            parent. As soon as the buffer differs from the working-copy parent,
+            signs show only the new changes.
     ]],
   },
 

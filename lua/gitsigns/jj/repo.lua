@@ -112,10 +112,26 @@ end
 --- @param file string
 --- @return string[] stdout, string? stderr, integer code
 function M:get_show_text(file)
+  local preserve_eol = require('gitsigns.config').config.jj.show_parent_on_empty
   return self:command(
     { 'file', 'show', '--revision', 'latest(@-, 1)', '--', file },
-    { ignore_error = true }
+    { ignore_error = true, text = not preserve_eol }
   )
+end
+
+--- Get the parent normally, or its parent when the working-copy change is empty.
+--- @async
+--- @param file string
+--- @return string[] stdout, string? stderr, integer code
+function M:get_show_text_parent_on_empty(file)
+  return self:command({
+    'file',
+    'show',
+    '--revision',
+    'latest((@ & ~empty())- | (@ & empty())--, 1)',
+    '--',
+    file,
+  }, { ignore_error = true, text = false })
 end
 
 --- @async

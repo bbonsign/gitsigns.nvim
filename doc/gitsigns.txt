@@ -879,6 +879,21 @@ base                                                    *gitsigns-config-base*
     The object/revision to diff against.
     See |gitsigns-revision|.
 
+jj                                                        *gitsigns-config-jj*
+    Type: `table[extended]`
+    Default: >
+    `{
+      show_parent_on_empty = false
+    }`
+<
+    Jujutsu-specific options.
+
+    Fields: ~
+      • `show_parent_on_empty`:
+          When the working-copy change is empty, show the changes in its
+          parent. As soon as the buffer differs from the working-copy parent,
+          signs show only the new changes.
+
 count_chars                                      *gitsigns-config-count_chars*
     Type: `table`
     Default: >
