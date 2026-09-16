@@ -8,6 +8,11 @@ M.warn = vim.schedule_wrap(function(fmt, ...)
 end)
 
 --- @type fun(fmt: string, ...: string)
+M.warn_once = vim.schedule_wrap(function(fmt, ...)
+  vim.notify_once(fmt:format(...), levels.WARN, { title = 'gitsigns' })
+end)
+
+--- @type fun(fmt: string, ...: string)
 M.error = vim.schedule_wrap(function(fmt, ...)
   vim.notify(fmt:format(...), levels.ERROR, { title = 'gitsigns' })
 end)

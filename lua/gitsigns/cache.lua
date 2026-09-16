@@ -146,6 +146,7 @@ local BLAME_THRESHOLD_LEN = 10000
 --- @return table<integer,Gitsigns.BlameInfo?>
 --- @return table<string,Gitsigns.CommitInfo?>
 --- @return boolean? full
+--- @return string? err
 function CacheEntry:run_blame(lnum, opts)
   local bufnr = self.bufnr
 
@@ -169,13 +170,13 @@ function CacheEntry:run_blame(lnum, opts)
     local tick = vim.b[bufnr].changedtick
     local lnum0 = api.nvim_buf_line_count(bufnr) > BLAME_THRESHOLD_LEN and lnum or nil
     -- TODO(lewis6991): Cancel blame on changedtick
-    local blame, commits = self.git_obj:run_blame(contents, lnum0, self.git_obj.revision, opts)
+    local blame, commits, err = self.git_obj:run_blame(contents, lnum0, self.git_obj.revision, opts)
     async.schedule()
     if not api.nvim_buf_is_valid(bufnr) then
       return {}, {}
     end
     if vim.b[bufnr].changedtick == tick then
-      return blame, commits, lnum0 == nil
+      return blame, commits, lnum0 == nil, err
     end
   end
   error('unreachable')
@@ -209,7 +210,15 @@ end
 --- @param lnum? integer|[integer, integer]
 --- @param opts? Gitsigns.BlameOpts
 --- @return Gitsigns.BlameInfo?
+--- @return string? err
 function CacheEntry:get_blame(lnum, opts)
+  if self.git_obj.repo.backend == 'jj' then
+    local _, err = self.git_obj:get_blame_repo()
+    if err then
+      return nil, err
+    end
+  end
+
   local blame = self.blame
 
   local blame_valid = true
@@ -250,7 +259,10 @@ function CacheEntry:get_blame(lnum, opts)
       end
     else
       -- Refresh/update cache
-      local b, commits, full = self:run_blame(lnum, opts)
+      local b, commits, full, err = self:run_blame(lnum, opts)
+      if err then
+        return nil, err
+      end
       self.commits = vim.tbl_extend('force', self.commits or {}, commits)
       if lnum and not full then
         local start_lnum = type(lnum) == 'table' and lnum[1] or lnum

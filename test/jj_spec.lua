@@ -11,6 +11,9 @@ local wait_for_attach = helpers.wait_for_attach
 local write_to_file = helpers.write_to_file
 local scratch --- @type string
 
+local blame_unsupported =
+  'Blame is unsupported in this Jujutsu workspace: no colocated Git repository'
+
 helpers.env()
 
 local function require_jj()
@@ -204,6 +207,139 @@ describe('jj backend', function()
         local bcache = assert(require('gitsigns.cache').cache[vim.api.nvim_get_current_buf()])
         return bcache.git_obj:stage_hunks({})
       end)
+    )
+  end)
+
+  it('uses matching colocated Git for blame without changing the jj backend', function()
+    setup_jj_repo(true)
+    write_to_file(scratch .. '/file.txt', { 'changed', 'unchanged' })
+    jj('new')
+    setup_gitsigns(helpers.test_config)
+    helpers.edit(scratch .. '/file.txt')
+    wait_for_attach()
+    helpers.api.nvim_buf_set_lines(0, 1, 2, false, { 'unsaved' })
+
+    local result = exec_lua(function()
+      local async = require('gitsigns.async')
+      local cache = require('gitsigns.cache').cache
+      local bcache = assert(cache[vim.api.nvim_get_current_buf()])
+      local info, err = async.run(bcache.get_blame, bcache, 1):wait(5000)
+
+      local source_win = vim.api.nvim_get_current_win()
+      local commit_buf = async
+        .run(require('gitsigns.actions.show_commit'), assert(info).commit.sha, 'vsplit')
+        :wait(5000)
+      local commit_filetype = commit_buf and vim.bo[commit_buf].filetype
+      vim.api.nvim_win_close(vim.api.nvim_get_current_win(), true)
+      vim.api.nvim_set_current_win(source_win)
+
+      async.run(require('gitsigns.actions.blame_line'), { full = true }):wait(5000)
+      local popup_win = assert(require('gitsigns.popup').is_open('blame'))
+      local popup_lines =
+        vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(popup_win), 0, -1, false)
+      require('gitsigns.popup').close('blame')
+
+      async.run(require('gitsigns.actions.blame').blame):wait(5000)
+      return {
+        backend = bcache.git_obj.repo.backend,
+        commit_filetype = commit_filetype,
+        err = err,
+        panel_filetype = vim.bo.filetype,
+        panel_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false),
+        popup_lines = popup_lines,
+        reblame_map = vim.fn.maparg('r', 'n'),
+        sha = info and info.commit.sha,
+      }
+    end)
+
+    eq('jj', result.backend)
+    eq('git', result.commit_filetype)
+    eq(nil, result.err)
+    eq('gitsigns-blame', result.panel_filetype)
+    eq(2, #result.panel_lines)
+    eq(false, result.popup_lines[1] == nil)
+    eq('', result.reblame_map)
+    eq(true, result.sha:match('^%x+$') ~= nil)
+  end)
+
+  it('warns without opening blame UI in a pure jj workspace', function()
+    setup_jj_repo()
+    setup_gitsigns(helpers.test_config)
+    helpers.edit(scratch .. '/file.txt')
+    wait_for_attach()
+
+    local result = exec_lua(function()
+      local async = require('gitsigns.async')
+      local notifications = {}
+      vim.notify = function(msg, level)
+        notifications[#notifications + 1] = { msg, level }
+      end
+
+      local win_count = #vim.api.nvim_list_wins()
+      local ok, err = pcall(function()
+        async.run(require('gitsigns.actions.blame').blame):wait(5000)
+      end)
+      vim.wait(100, function()
+        return #notifications > 0
+      end)
+      return {
+        err = err,
+        notification = notifications[1],
+        ok = ok,
+        opened_window = #vim.api.nvim_list_wins() ~= win_count,
+      }
+    end)
+
+    eq(true, result.ok, result.err)
+    eq(false, result.opened_window)
+    eq(blame_unsupported, result.notification[1])
+    eq(exec_lua('return vim.log.levels.WARN'), result.notification[2])
+  end)
+
+  it('rejects blame when Git HEAD does not match the selected jj parent', function()
+    setup_jj_repo(true)
+    setup_gitsigns(helpers.test_config)
+    helpers.edit(scratch .. '/file.txt')
+    wait_for_attach()
+
+    local result = exec_lua(function()
+      local async = require('gitsigns.async')
+      local bcache = assert(require('gitsigns.cache').cache[vim.api.nvim_get_current_buf()])
+      local repo = bcache.git_obj.repo
+      local command0 = repo.command
+      repo.command = function(self, args, spec)
+        if args[1] == 'log' and args[2] == '--no-graph' then
+          return { string.rep('0', 40) }, nil, 0
+        end
+        return command0(self, args, spec)
+      end
+
+      local notifications = {}
+      vim.notify = function(msg)
+        notifications[#notifications + 1] = msg
+      end
+      local win_count = #vim.api.nvim_list_wins()
+      local ok, err = pcall(function()
+        async.run(require('gitsigns.actions.blame_line'), { full = true }):wait(5000)
+      end)
+      vim.wait(100, function()
+        return #notifications > 0
+      end)
+      return {
+        err = err,
+        notification = notifications[1],
+        ok = ok,
+        opened_window = #vim.api.nvim_list_wins() ~= win_count,
+        popup = require('gitsigns.popup').is_open('blame'),
+      }
+    end)
+
+    eq(true, result.ok, result.err)
+    eq(false, result.opened_window)
+    eq(nil, result.popup)
+    eq(
+      'Blame is unsupported in this Jujutsu workspace: Git HEAD does not match the jj working-copy parent',
+      result.notification
     )
   end)
 end)

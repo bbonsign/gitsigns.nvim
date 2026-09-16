@@ -158,8 +158,14 @@ backend takes precedence over Git. This integration is intentionally read-only:
 - materialized conflict contents remain attachable; for a merge working copy,
   they are diffed against one parent selected deterministically by jj's
   `latest(@-, 1)` rather than jj's virtual merged-parent tree;
-- staged signs, staging/unstaging, resets, blame, alternate bases, and other
-  Git-specific actions are unsupported.
+- blame is supported in colocated repositories when Git `HEAD` exactly matches
+  jj's selected working-copy parent. This includes unsaved buffer contents,
+  full line blame, and the blame side panel's commit/diff actions. Reblame from
+  the side panel remains unavailable;
+- pure jj repositories, mismatched colocated repositories, staged signs,
+  staging/unstaging, resets, alternate bases, and other Git-specific actions
+  are unsupported. Unsupported blame requests show a warning instead of
+  opening an empty panel.
 
 The `.jj` directory is watched when `watch_gitdir.enable` is set, so operations
 that change the working-copy parent refresh attached buffers.

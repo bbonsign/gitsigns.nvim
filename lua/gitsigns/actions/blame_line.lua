@@ -4,6 +4,7 @@ local HunkPreview = require('gitsigns.hunk_preview')
 local cache = require('gitsigns.cache').cache
 local config = require('gitsigns.config').config
 local log = require('gitsigns.debug.log')
+local message = require('gitsigns.message')
 local popup = require('gitsigns.popup')
 local run_diff = require('gitsigns.diff')
 local util = require('gitsigns.util')
@@ -193,12 +194,17 @@ return function(opts)
       or api.nvim_get_current_buf() ~= popup_bufnr
         and (api.nvim_get_current_buf() ~= bufnr or api.nvim_win_get_cursor(0)[1] ~= lnum)
   end
-  local info = bcache:get_blame(lnum, opts)
+  local info, err = bcache:get_blame(lnum, opts)
   pcall(function()
     loading:close()
   end)
 
   if is_stale() then
+    return
+  end
+
+  if err then
+    message.warn('%s', err)
     return
   end
 
@@ -211,7 +217,11 @@ return function(opts)
     return
   end
 
-  local repo = bcache.git_obj.repo
+  local repo, repo_err = bcache.git_obj:get_blame_repo()
+  if not repo then
+    message.warn('%s', assert(repo_err))
+    return
+  end
   local body = opts.full and build_full_blame_body(bufnr, result, repo)
     or { { { result.summary, 'NormalFloat' } } }
   local blame_linespec = { create_blame_title_linespec(result, repo, false) }

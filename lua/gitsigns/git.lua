@@ -109,6 +109,19 @@ function Obj:from_tree()
   return Repo.from_tree(self.revision)
 end
 
+--- Return the repository which can safely provide Git blame data and related
+--- historical objects for this buffer.
+--- @async
+--- @return Gitsigns.Repo? repo
+--- @return string? err
+function Obj:get_blame_repo()
+  if self.repo.backend ~= 'jj' then
+    return self.repo
+  end
+  local repo = self.repo --[[@as Gitsigns.JjRepo]]
+  return repo:get_blame_repo()
+end
+
 --- @async
 --- @param revision? string
 --- @param relpath? string
@@ -127,11 +140,16 @@ function Obj:get_show_text(revision, relpath)
 
   local stdout, stderr
   if self.repo.backend == 'jj' then
-    -- jj exposes the working-copy parent as its only supported base.
     if revision then
-      return {}, 'Jujutsu workspaces do not support alternate revisions'
+      local blame_repo, err = self:get_blame_repo()
+      if not blame_repo then
+        return {}, err
+      end
+      stdout, stderr =
+        blame_repo:get_show_text_at_revision(revision, assert(relpath), self.encoding)
+    else
+      stdout, stderr = self.repo:get_show_text(assert(relpath))
     end
-    stdout, stderr = self.repo:get_show_text(assert(relpath))
   elseif revision then
     --- @cast relpath -?
     stdout, stderr = self.repo:get_show_text_at_revision(revision, relpath, self.encoding)
@@ -199,11 +217,19 @@ end
 --- @param opts? Gitsigns.BlameOpts
 --- @return table<integer,Gitsigns.BlameInfo?>
 --- @return table<string,Gitsigns.CommitInfo?>
+--- @return string? err
 function Obj:run_blame(contents, lnum, revision, opts)
-  if self.repo.backend == 'jj' then
-    return {}, {}
+  local repo, err = self:get_blame_repo()
+  if not repo then
+    return {}, {}, err
   end
-  return require('gitsigns.git.blame').run_blame(self, contents, lnum, revision, opts)
+
+  if repo == self.repo then
+    return require('gitsigns.git.blame').run_blame(self, contents, lnum, revision, opts)
+  end
+
+  local blame_obj = setmetatable({ repo = repo }, { __index = self })
+  return require('gitsigns.git.blame').run_blame(blame_obj, contents, lnum, revision, opts)
 end
 
 --- @async

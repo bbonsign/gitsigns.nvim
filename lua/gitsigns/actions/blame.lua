@@ -4,6 +4,7 @@ local cache = require('gitsigns.cache').cache
 local config = require('gitsigns.config').config
 local log = require('gitsigns.debug.log')
 local error_once = require('gitsigns.message').error_once
+local message = require('gitsigns.message')
 local util = require('gitsigns.util')
 
 local get_temp_hl = require('gitsigns.highlight').get_temp_hl
@@ -174,9 +175,10 @@ end
 --- @param win integer
 --- @param main_win integer
 --- @param buf_sha? string
+--- @param repo? Gitsigns.Repo
 --- @return table<integer,true> commit_lines
 --- @return table<integer,boolean> commit_summaries
-local function render(blame, win, main_win, buf_sha)
+local function render(blame, win, main_win, buf_sha, repo)
   local max_author_len = 0
   local entries = blame.entries
 
@@ -186,7 +188,8 @@ local function render(blame, win, main_win, buf_sha)
 
   local main_buf = api.nvim_win_get_buf(main_win)
   local main_cache = assert(cache[main_buf])
-  local username = main_cache.git_obj.repo.username or ''
+  repo = repo or main_cache.git_obj.repo
+  local username = repo.username or ''
 
   local lines = {} --- @type string[]
   local highlights = {} --- @type table<integer, Gitsigns.BlameLineHighlight[]>
@@ -486,8 +489,18 @@ function M.blame(opts)
   end
 
   local lnum = nil
-  bcache:get_blame(lnum, opts)
+  local _, err = bcache:get_blame(lnum, opts)
+  if err then
+    message.warn('%s', err)
+    return
+  end
   local blame = assert(bcache.blame)
+  local blame_repo, repo_err = bcache.git_obj:get_blame_repo()
+  if not blame_repo then
+    message.warn('%s', assert(repo_err))
+    return
+  end
+  local jj_fallback = bcache.git_obj.repo.backend == 'jj'
 
   -- Save position to align 'scrollbind'
   local top = vim.fn.line('w0') + vim.wo.scrolloff
@@ -500,7 +513,8 @@ function M.blame(opts)
   api.nvim_win_set_buf(blm_win, blm_bufnr)
   api.nvim_buf_set_name(blm_bufnr, (bcache:get_rev_bufname():gsub('^gitsigns:', 'gitsigns-blame:')))
 
-  local commit_lines, commit_summaries = render(blame, blm_win, win, bcache.git_obj.revision)
+  local commit_lines, commit_summaries =
+    render(blame, blm_win, win, bcache.git_obj.revision, blame_repo)
 
   local blm_bo = vim.bo[blm_bufnr]
   blm_bo.buftype = 'nofile'
@@ -550,12 +564,14 @@ function M.blame(opts)
     buffer = blm_bufnr,
   })
 
-  pmap('n', 'r', function()
-    async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision):raise_on_error()
-  end, {
-    desc = 'Reblame at commit',
-    buffer = blm_bufnr,
-  })
+  if not jj_fallback then
+    pmap('n', 'r', function()
+      async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision):raise_on_error()
+    end, {
+      desc = 'Reblame at commit',
+      buffer = blm_bufnr,
+    })
+  end
 
   pmap('n', 'd', function()
     async.run(diff, bufnr, blm_win, blame.entries):raise_on_error()
@@ -564,12 +580,14 @@ function M.blame(opts)
     buffer = blm_bufnr,
   })
 
-  pmap('n', 'R', function()
-    async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision, true):raise_on_error()
-  end, {
-    desc = 'Reblame at commit parent',
-    buffer = blm_bufnr,
-  })
+  if not jj_fallback then
+    pmap('n', 'R', function()
+      async.run(reblame, opts, blame.entries, win, bcache.git_obj.revision, true):raise_on_error()
+    end, {
+      desc = 'Reblame at commit parent',
+      buffer = blm_bufnr,
+    })
+  end
 
   pmap('n', 's', function()
     async.run(show_commit, win, blm_win, 'vsplit', bcache):raise_on_error()
@@ -592,14 +610,17 @@ function M.blame(opts)
     buffer = blm_bufnr,
   })
 
-  menu('GitsignsBlame', {
-    { 'Reblame at commit', 'r' },
-    { 'Reblame at commit parent', 'R' },
+  local menu_items = {
     { 'Diff (tab)', 'd' },
     { 'Show commit (vsplit)', 's' },
     { '            (tab)', 'S' },
     { '            (current window)', 'e' },
-  })
+  }
+  if not jj_fallback then
+    table.insert(menu_items, 1, { 'Reblame at commit parent', 'R' })
+    table.insert(menu_items, 1, { 'Reblame at commit', 'r' })
+  end
+  menu('GitsignsBlame', menu_items)
 
   local group = api.nvim_create_augroup('GitsignsBlame', {})
 
