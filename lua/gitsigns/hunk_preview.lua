@@ -127,7 +127,7 @@ end
 --- @return fun() cleanup
 function M.prepare_removed_source(bufnr, staged, source_cache)
   local bcache = assert(cache[bufnr])
-  local lines = assert(staged and bcache.compare_text_head or bcache.compare_text) --[[@as string[] ]]
+  local lines = assert(staged and bcache.compare_text_head or bcache.compare_text_active) --[[@as string[] ]]
   local cache_key = staged and 'removed:staged' or 'removed:unstaged'
   return prepare_source(bufnr, lines, {
     source_cache = source_cache,

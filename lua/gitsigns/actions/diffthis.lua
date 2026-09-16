@@ -23,7 +23,7 @@ local function bufread(bufnr, dbufnr, base, relpath)
   base = util.norm_base(base)
   local text --- @type string[]
   if base == bcache.git_obj.revision then
-    text = assert(bcache.compare_text)
+    text = assert(bcache.compare_text_active)
   else
     local err
     text, err = bcache.git_obj:get_show_text(base, relpath)

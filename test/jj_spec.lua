@@ -116,6 +116,9 @@ describe('jj backend', function()
   it('shows the parent change while the working-copy change is empty', function()
     setup_jj_repo()
 
+    write_to_file(scratch .. '/file.txt', { 'changed', 'unchanged' })
+    jj('new')
+
     local config = vim.tbl_deep_extend('force', helpers.test_config, {
       jj = { show_parent_on_empty = true },
     })
@@ -124,21 +127,36 @@ describe('jj backend', function()
     wait_for_attach()
 
     helpers.check({
-      status = { head = '@', added = 2, changed = 0, removed = 0 },
-      signs = { added = 2 },
+      status = { head = '@', added = 0, changed = 1, removed = 0 },
+      signs = { changed = 1 },
     })
+
+    local preview = exec_lua(function()
+      require('gitsigns').preview_hunk()
+      local win = assert(require('gitsigns.popup').is_open('hunk'))
+      return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, -1, false)
+    end)
+    eq({ 'Hunk 1 of 1', '-base', '+changed' }, preview)
+
+    exec_lua("require('gitsigns.popup').close('hunk')")
+
+    helpers.api.nvim_buf_set_lines(0, 0, 1, false, { 'edited' })
+    helpers.check({
+      status = { head = '@', added = 0, changed = 1, removed = 0 },
+      signs = { changed = 1 },
+    })
+    helpers.expectf(function()
+      eq({ 'changed' }, exec_lua("return require('gitsigns').get_hunks()[1].removed.lines"))
+    end)
 
     helpers.api.nvim_buf_set_lines(0, 0, 1, false, { 'changed' })
     helpers.check({
       status = { head = '@', added = 0, changed = 1, removed = 0 },
       signs = { changed = 1 },
     })
-
-    helpers.api.nvim_buf_set_lines(0, 0, 1, false, { 'base' })
-    helpers.check({
-      status = { head = '@', added = 2, changed = 0, removed = 0 },
-      signs = { added = 2 },
-    })
+    helpers.expectf(function()
+      eq({ 'base' }, exec_lua("return require('gitsigns').get_hunks()[1].removed.lines"))
+    end)
   end)
 
   it('does not show the parent change when the working-copy change is non-empty', function()

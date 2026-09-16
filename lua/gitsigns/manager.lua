@@ -189,6 +189,7 @@ M.update = throttle_async({ hash = 1, schedule = true }, function(bufnr)
     if parent_text and vim.deep_equal(buftext, bcache.compare_text) then
       compare_text = parent_text
     end
+    bcache.compare_text_active = compare_text
     bcache.hunks = run_diff(compare_text, buftext)
     if not bcache:schedule() then
       return

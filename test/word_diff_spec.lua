@@ -1790,6 +1790,7 @@ describe('hunk preview source buffers', function()
         })
 
         bcache.compare_text = { 'replacement line' }
+        bcache.compare_text_active = bcache.compare_text
 
         local _, cleanup2 = HunkPreview.prepare_removed_source(bufnr, false, source_cache)
         cleanup2()

@@ -28,6 +28,7 @@ local M = {
 --- @field file_mode?         boolean
 ---
 --- @field compare_text_parent_on_empty? string[]
+--- @field compare_text_active?          string[]
 ---
 --- @field compare_text_head? string[]
 --- @field hunks_staged?      Gitsigns.Hunk.Hunk[]
@@ -64,6 +65,7 @@ function CacheEntry:invalidate(all)
     -- if the buffer changes
     self.compare_text = nil
     self.compare_text_parent_on_empty = nil
+    self.compare_text_active = nil
     self.compare_text_head = nil
   end
 end
@@ -303,7 +305,7 @@ function CacheEntry:get_hunks(greedy, staged)
     if staged then
       text = self.compare_text_head
     else
-      text = self.compare_text
+      text = self.compare_text_active
     end
     if not text then
       return
@@ -363,7 +365,7 @@ function CacheEntry:get_hunk(range, greedy, staged)
     return
   end
 
-  local compare_text = assert(self.compare_text)
+  local compare_text = assert(self.compare_text_active)
 
   if staged then
     local staged_top, staged_bot = top, bot

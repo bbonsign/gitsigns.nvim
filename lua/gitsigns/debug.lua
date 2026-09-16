@@ -21,6 +21,7 @@ local function process(raw_item, path)
   if
     vim.tbl_contains({
       'compare_text',
+      'compare_text_active',
       'compare_text_head',
       'hunks',
       'hunks_staged',

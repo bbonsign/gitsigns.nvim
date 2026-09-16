@@ -188,7 +188,7 @@ function M.preview_hunk()
       HunkPreview.linespec_for_hunk(
         bcache.bufnr,
         hunk,
-        assert(bcache.compare_text),
+        assert(bcache.compare_text_active),
         bcache.bufnr,
         hunk.added
       )
