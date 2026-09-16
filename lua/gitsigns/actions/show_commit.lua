@@ -3,6 +3,7 @@ local cache = require('gitsigns.cache').cache
 local Util = require('gitsigns.util')
 local Hunks = require('gitsigns.hunks')
 local config = require('gitsigns.config').config
+local message = require('gitsigns.message')
 
 local api = vim.api
 
@@ -103,7 +104,13 @@ function M.show_commit(base, open, bufnr, ref_list, ref_list_ptr)
     return
   end
 
-  local res = bcache.git_obj.repo:command({
+  local repo, err = bcache.git_obj:get_blame_repo()
+  if not repo then
+    message.warn('%s', assert(err))
+    return
+  end
+
+  local res = repo:command({
     'show',
     '--unified=0',
     '--format=format:' .. SHOW_FORMAT,

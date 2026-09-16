@@ -8,6 +8,7 @@ local Config = require('gitsigns.config')
 local config = Config.config
 local schema = require('gitsigns.config').schema
 local error_once = require('gitsigns.message').error_once
+local warn_once = require('gitsigns.message').warn_once
 
 local api = vim.api
 
@@ -200,7 +201,12 @@ local function update(bufnr)
 
   local opts = config.current_line_blame_opts
 
-  local blame_info = bcache:get_blame(lnum, opts)
+  local blame_info, err = bcache:get_blame(lnum, opts)
+
+  if err then
+    warn_once('%s', err)
+    return
+  end
 
   if not api.nvim_win_is_valid(winid) or bufnr ~= api.nvim_win_get_buf(winid) then
     return

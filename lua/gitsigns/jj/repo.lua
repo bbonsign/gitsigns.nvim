@@ -17,6 +17,7 @@ local uv = vim.uv or vim.loop ---@diagnostic disable-line: deprecated
 --- @field username? string
 --- @field private _refs integer
 --- @field private _watcher? Gitsigns.Repo.Watcher
+--- @field private _git_repo? Gitsigns.Repo
 local M = {}
 M.__index = M
 
@@ -79,6 +80,10 @@ function M:unref()
       self._watcher:close()
       self._watcher = nil
     end
+    if self._git_repo then
+      self._git_repo:unref()
+      self._git_repo = nil
+    end
     cache[self.toplevel] = nil
   end
 end
@@ -106,6 +111,55 @@ function M:command(args, spec)
   spec = spec or {}
   spec.cwd = self.toplevel
   return cmd(args, spec)
+end
+
+--- Return a companion Git repository when Git HEAD represents the same commit
+--- as jj's selected working-copy parent.
+--- @async
+--- @return Gitsigns.Repo? repo
+--- @return string? err
+function M:get_blame_repo()
+  local gitdir = Path.join(self.toplevel, '.git')
+  if not Path.exists(gitdir) then
+    return nil, 'Blame is unsupported in this Jujutsu workspace: no colocated Git repository'
+  end
+
+  if not self._git_repo then
+    local GitRepo = require('gitsigns.git.repo')
+    local repo = GitRepo.get(self.toplevel, gitdir, self.toplevel)
+    if not repo then
+      return nil,
+        'Blame is unsupported in this Jujutsu workspace: cannot open colocated Git repository'
+    end
+    self._git_repo = repo
+    self.username = repo.username
+  end
+
+  local jj_parent, _, jj_code = self:command({
+    'log',
+    '--no-graph',
+    '--revision',
+    'latest(@-, 1)',
+    '--template',
+    'commit_id',
+  }, { ignore_error = true })
+  local git_head, _, git_code = self._git_repo:command(
+    { 'rev-parse', 'HEAD' },
+    { ignore_error = true }
+  )
+
+  if
+    jj_code ~= 0
+    or git_code ~= 0
+    or not jj_parent[1]
+    or not git_head[1]
+    or vim.trim(jj_parent[1]) ~= vim.trim(git_head[1])
+  then
+    return nil,
+      'Blame is unsupported in this Jujutsu workspace: Git HEAD does not match the jj working-copy parent'
+  end
+
+  return self._git_repo
 end
 
 --- @async
